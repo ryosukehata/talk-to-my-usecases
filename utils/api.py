@@ -212,17 +212,21 @@ def process_uploaded_file(uploaded_file):
             "summary": f"処理エラー: {str(e)}"
         }
 
-async def fetch_prompts_with_tools(use_tools_and_descriptions:bool=True):
+async def fetch_prompts_with_tools(use_tools_and_descriptions:bool=True, 
+                                   prompt_type:str=None) -> str:
     if use_tools_and_descriptions:
-        system_prompt = prompts.get_system_prompt_description()
+        system_prompt = system_prompt_switcher(prompt_type=prompt_type)
         logger.info(f"Use descriptions")
         df = await fetch_aicatalog_dataset()
         _data = df.to_dict(orient='list')
         print(_data)
         tools_and_descriptions = "\n".join([str(i)+':'+str(j) for i, j in zip(_data["tool_name"], _data['description'])])
-        system_prompt = system_prompt.format(tools_and_descriptions=tools_and_descriptions,
-                                             current_question_round=st.session_state.question_counter)
-
+        if prompt_type is None:
+           system_prompt = system_prompt.format(tools_and_descriptions=tools_and_descriptions,
+                                                current_question_round=st.session_state.question_counter)
+        else:
+            system_prompt = system_prompt.format(tools_and_descriptions=tools_and_descriptions)
+        logger.info(f"system_prompt: {system_prompt}")
     else:
         logger.info(f"Don't use descriptions")
         system_prompt = prompts.get_system_prompt()
@@ -242,16 +246,45 @@ async def prepare_telemetry_send(telemetry_json: dict | None) -> dict | None:
     telemetry_send["startTimestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return telemetry_send
 
+def system_prompt_switcher(prompt_type:str=None) -> str:
+    """
+    システムプロンプトを取得します。
+    セッション状態に基づいて決定されます。
+    prompt_typeがNoneの場合は全て同じシステムプロンプトで処理を行います。
+    prompt_typeが"decision"の場合は決定支援のプロンプトを使用します。
+    prompt_typeが"question"の場合は質問作成のプロンプトを使用します。
+    prompt_typeが"solution"の場合はソリューション提案のプロンプトを使用します。
+    """
+    if prompt_type is None:
+        logger.info(f"Use default system prompt")
+        return prompts.get_system_prompt_description()
+    elif prompt_type == "decision":
+        # 決定支援のためのプロンプトを取得
+        logger.info(f"Use decision support prompt")
+        return prompts.get_system_prompt_for_decision()
+    elif prompt_type == "question":
+        # 質問応答のためのプロンプトを取得
+        logger.info(f"Use question answering prompt")
+        return prompts.get_system_prompt_for_questions()
+    elif prompt_type == "solution":
+        # ソリューション提案のためのプロンプトを取得
+        logger.info(f"Use solution proposal prompt")
+        return prompts.get_system_prompt_for_solution()
+
+
 @log_api_call
 # --- API 呼び出し関数 ---
 async def fetch_dx_tool_suggestions(chat_history_for_openai,
                                     use_tools_and_descriptions:bool=True,
-                                    telemetry_json:dict | None =None) -> dict:
+                                    telemetry_json:dict | None =None,
+                                    prompt_type:str = None
+                                    ) -> dict:
     """
     OpenAI APIを呼び出して、DXテーマ定義に関する応答を取得します。
     AIにはJSON形式で応答するよう指示します。
     """
-    system_prompt = await fetch_prompts_with_tools(use_tools_and_descriptions)
+    system_prompt = await fetch_prompts_with_tools(use_tools_and_descriptions,
+                                                   prompt_type)
 
     messages: list[ChatCompletionMessageParam] = [
             ChatCompletionSystemMessageParam(

@@ -44,6 +44,16 @@ from pydantic import (
 )
 from typing_extensions import TypedDict
 
+
+from enum import Enum
+
+
+class PromptType(str, Enum):
+    DECISION = "decision"
+    QUESTION = "questions"
+    SOLUTION = "solution"
+
+
 class LLMDeploymentSettings(BaseModel):
     target_feature_name: str = "resultText"
     prompt_feature_name: str = "promptText"

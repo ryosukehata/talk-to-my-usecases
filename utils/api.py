@@ -52,6 +52,7 @@ from openai.types.chat.chat_completion_system_message_param import (
 )
 import streamlit as st
 
+
 # Office文書読み込み用のライブラリ
 from docx import Document  # Word文書処理用
 from pptx import Presentation  # PowerPoint処理用
@@ -66,11 +67,11 @@ from utils.dr_helper import (
     fetch_aicatalog_dataset,
     async_submit_actuals_to_datarobot
     )
+from utils.schema import PromptType
 
 logger = get_logger()
 logging.getLogger("openai").setLevel(logging.WARNING)
 logging.getLogger("openai.http_client").setLevel(logging.WARNING)
-
 
 def log_memory() -> None:
     process = psutil.Process()
@@ -80,6 +81,10 @@ def log_memory() -> None:
 
 
 class AsyncLLMClient:
+
+    def __init__(self, use_instructor:bool=False) -> None:
+        self.use_instructor = use_instructor
+
     async def __aenter__(self) -> instructor.AsyncInstructor:
         dr_client, deployment_chat_base_url = initialize_deployment()
         
@@ -89,12 +94,13 @@ class AsyncLLMClient:
             timeout=90,
             max_retries=2,
         )
-        '''
-        self.client = instructor.from_openai(
-            self.openai_client, mode=instructor.Mode.MD_JSON
-        )
-        '''
-        self.client = self.openai_client
+
+        if self.use_instructor:
+            self.client = instructor.from_openai(
+                self.openai_client, mode=instructor.Mode.MD_JSON
+            )
+        else:
+            self.client = self.openai_client
         return self.client
 
     async def __aexit__(
@@ -258,19 +264,51 @@ def system_prompt_switcher(prompt_type:str=None) -> str:
     if prompt_type is None:
         logger.info(f"Use default system prompt")
         return prompts.get_system_prompt_description()
-    elif prompt_type == "decision":
+    elif prompt_type == PromptType.DECISION:
         # 決定支援のためのプロンプトを取得
         logger.info(f"Use decision support prompt")
         return prompts.get_system_prompt_for_decision()
-    elif prompt_type == "question":
+    elif prompt_type == PromptType.QUESTION:
         # 質問応答のためのプロンプトを取得
         logger.info(f"Use question answering prompt")
         return prompts.get_system_prompt_for_questions()
-    elif prompt_type == "solution":
+    elif prompt_type == PromptType.SOLUTION:
         # ソリューション提案のためのプロンプトを取得
         logger.info(f"Use solution proposal prompt")
         return prompts.get_system_prompt_for_solution()
 
+
+async def get_llm_responses(messages:str,
+                            use_instructor:bool=False,
+                            response_model:str=None) -> tuple[str, str]:
+    if use_instructor:
+        async with AsyncLLMClient(use_instructor=use_instructor) as client:
+            (
+            completion,
+            completion_org,
+            ) = await client.chat.completions.create_with_completion(
+            response_model=response_model,
+            model=ALTERNATIVE_LLM_BIG,
+            temperature=0.1,
+            messages=messages,
+            )
+        # ここのvalidationの処理はpydanticを使用してやりたいが分岐が多いので一旦動くのかを考える
+
+        response_content = completion
+        association_id = completion_org.datarobot_moderations["association_id"]
+
+    else:
+        async with AsyncLLMClient(use_instructor=use_instructor) as client:
+            completion = await client.chat.completions.create(
+                response_format={"type": "json_object"},
+                model=ALTERNATIVE_LLM_BIG,
+                messages=messages,
+            )
+        response_content = completion.choices[0].message.content
+        association_id = completion.datarobot_moderations['association_id']
+
+    logger.debug("raw LLM response:" +completion)
+    return response_content, association_id
 
 @log_api_call
 # --- API 呼び出し関数 ---
@@ -283,6 +321,8 @@ async def fetch_dx_tool_suggestions(chat_history_for_openai,
     OpenAI APIを呼び出して、DXテーマ定義に関する応答を取得します。
     AIにはJSON形式で応答するよう指示します。
     """
+    # use_instructor = True if prompt_type is not None else False
+
     system_prompt = await fetch_prompts_with_tools(use_tools_and_descriptions,
                                                    prompt_type)
 
@@ -299,8 +339,9 @@ async def fetch_dx_tool_suggestions(chat_history_for_openai,
     telemetry_send = await prepare_telemetry_send(telemetry_json)
 
     try:
+
         async with AsyncLLMClient() as client:
-            #(
+                #(
             #    completion,
             #    completion_org,
             #) = await client.chat.completions.create_with_completion(

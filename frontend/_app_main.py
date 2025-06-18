@@ -25,6 +25,7 @@ from utils.schema import PromptType
 
 
 logger = logging.getLogger("TalkToMyUseCase")
+MAX_QUESTION_ROUNDS = 5
 
 
 
@@ -39,7 +40,7 @@ async def handel_first_question(combined_input) -> None:
             ChatCompletionUserMessageParam(role="user",
                                         content=combined_input)
             ],
-        "conversation_stage": "PROCESSING_INITIAL",
+        "conversation_stage": PromptType.DECISION,
         "questions_asked_flag": False,
         "ai_questions": [],
         "user_answers": {},
@@ -73,11 +74,10 @@ async def handle_ai_response(ai_response: dict) -> None:
     )
     
     response_type = ai_response["type"]
+
     
-    if response_type == "questions":
-        _handle_questions_response(ai_response)
-    elif response_type == "solution":
-        _handle_solution_response(ai_response)
+    if response_type == PromptType.QUESTION or response_type == PromptType.SOLUTION:
+        return response_type
     else:
         st.error(f"予期しないレスポンスタイプ: {response_type}")
         st.session_state.conversation_stage = "INITIAL_INPUT"
@@ -85,36 +85,19 @@ async def handle_ai_response(ai_response: dict) -> None:
 
 def _handle_questions_response(ai_response: dict) -> None:
     """質問タイプの応答を処理します。"""
-    # 追加の質問が必要な場合（質問回数が上限未満）
-    if st.session_state.question_counter >= 5:
-        # 質問回数が上限に達した場合は強制的に解決策を表示
-        st.warning("質問回数が上限に達しました。現時点での最善の提案を表示します。")
-        st.session_state.dx_solution = {
-            "tools": ai_response.get("tools", [ai_response.get("tool", "利用可能な最適なDXツール")]),
-            "primary_tool": ai_response.get("primary_tool", ai_response.get("tool", "利用可能な最適なDXツール")),
-            "tool_combinations": ai_response.get("tool_combinations", [{
-                "tool": ai_response.get("tool", "利用可能な最適なDXツール"),
-                "purpose": "主要な解決手段",
-                "todos": ai_response.get("todos", ["現時点で考えられる最適なToDo"])
-                }]),
-            "todos": ai_response.get("todos", ["現時点で考えられる最適なToDo"]),
-            "message": "質問回数の制限に達したため、限られた情報に基づく提案となっています: " + ai_response["message"]
-            }
-        st.session_state.conversation_stage = "SHOWING_SOLUTION"
-    else:
-        st.session_state.ai_questions = ai_response["questions"]
+    st.session_state.ai_questions = ai_response["questions"]
     
-        # AIからの質問も個別に履歴に追加
-        for q_text in st.session_state.ai_questions:
-            st.session_state.chat_history.append(
-                ChatCompletionAssistantMessageParam(
-                    role="assistant",
-                    content=f"質問: {q_text}"
-                )
+    # AIからの質問も個別に履歴に追加
+    for q_text in st.session_state.ai_questions:
+        st.session_state.chat_history.append(
+            ChatCompletionAssistantMessageParam(
+                role="assistant",
+                content=f"質問: {q_text}"
             )
+        )
     
-        st.session_state.conversation_stage = "AWAITING_ANSWERS"
-        st.session_state.questions_asked_flag = True
+    st.session_state.conversation_stage = "AWAITING_ANSWERS"
+    st.session_state.questions_asked_flag = True
     st.rerun()
 
 def _handle_solution_response(ai_response: dict) -> None:
@@ -176,7 +159,7 @@ def _update_session_with_answers(temp_answers: dict, user_responses_for_history:
     """
     st.session_state.user_answers = temp_answers
     st.session_state.chat_history.extend(user_responses_for_history)
-    st.session_state.conversation_stage = "PROCESSING_INITIAL"
+    st.session_state.conversation_stage = PromptType.DECISION
     st.session_state.question_counter += 1  # 質問カウンターをインクリメント
     st.rerun()
 
@@ -185,6 +168,8 @@ def update_checkbox_state_descrptions():
 
 def update_checkbox_state_llms():
     st.session_state.use_multiple_system_prompts = st.session_state.use_multiple_system_prompts_key
+
+
 
 async def main():
     """
@@ -271,28 +256,32 @@ async def main():
             st.warning("「やりたいこと」を入力してください。")
 
     # --- AIによる分析と応答処理 ---
-    if st.session_state.conversation_stage == "PROCESSING_INITIAL":
+    if st.session_state.conversation_stage == PromptType.DECISION:
         with st.spinner("AIが分析中です...しばらくお待ちください。"):
             # chat_history には既にユーザーの最初の入力が含まれている
             print(st.session_state.chat_history)
             print(st.session_state.conversation_stage)
-            if st.session_state.use_multiple_system_prompts:
-                prompt_type=PromptType.DECISION
-            else:
-                prompt_type=None
             ai_response = await fetch_dx_tool_suggestions(st.session_state.chat_history,
                                                           st.session_state.use_tools_and_descriptions,
                                                           telemetry_json=st.session_state.telemetry_json,
-                                                          prompt_type=実装する)
-            print(st.session_state.conversation_stage)
+                                                          prompt_type=st.session_state.conversation_stage)
             # AIからの応答を処理
-            await handle_ai_response(ai_response)
+            response_type = await handle_ai_response(ai_response)
+            st.session_state.conversation_stage = response_type
 
-    # --- ステップ1.5: AIからの追加質問とユーザーの回答 ---
-    if st.session_state.conversation_stage == "AWAITING_ANSWERS" and st.session_state.ai_questions:
+    # --- AIからの追加質問作成 ---
+    if st.session_state.conversation_stage == PromptType.QUESTION and st.session_state <= MAX_QUESTION_ROUNDS:
         # 残りの質問回数を表示
+
+        ai_response = await fetch_dx_tool_suggestions(st.session_state.chat_history,
+                                                          st.session_state.use_tools_and_descriptions,
+                                                          telemetry_json=st.session_state.telemetry_json,
+                                                          prompt_type=st.session_state.conversation_stage)
         st.info(f"AIによる質問回数: {st.session_state.question_counter}回 / 最大5回中")
 
+    # -- AIからの質問からユーザーの回答を待つ --
+    if st.session_state.conversation_stage == "AWAITING_ANSWERS":
+        _handle_questions_response(ai_response)
         # AIの質問を促すメッセージを表示
         st.info(st.session_state.chat_history[-1-len(st.session_state.ai_questions)]["content"])
 
@@ -300,7 +289,15 @@ async def main():
             await handle_user_answers_form()
 
 
-    # --- ステップ2: DXツールとToDoリストの表示 ---
+    # --- DXツールとToDoリストの生成 ---
+    if st.session_state.conversation_stage == PromptType.SOLUTION or st.session_state > MAX_QUESTION_ROUNDS:
+        ai_response = await fetch_dx_tool_suggestions(st.session_state.chat_history,
+                                                      st.session_state.use_tools_and_descriptions,
+                                                      telemetry_json=st.session_state.telemetry_json,
+                                                      prompt_type=st.session_state.conversation_stage)
+        _handle_solution_response(ai_response)
+                                                
+    # --- DXツールとToDoリストの表示 ---
     if st.session_state.conversation_stage == "SHOWING_SOLUTION" and st.session_state.dx_solution:
         solution = st.session_state.dx_solution
     

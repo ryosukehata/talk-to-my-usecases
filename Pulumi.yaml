@@ -1,11 +1,10 @@
 ---
-name: dataanalyst
+name: usecaseanalyst
 runtime:
   name: python
 main: infra
-description: Data Analyst
+description: Usecase Analyst
 config:
   pulumi:tags:
     value:
       pulumi:template: python
-  datarobot:tracecontext: dataanalyst

@@ -52,7 +52,6 @@ from openai.types.chat.chat_completion_system_message_param import (
 )
 import streamlit as st
 
-
 # Office文書読み込み用のライブラリ
 from docx import Document  # Word文書処理用
 from pptx import Presentation  # PowerPoint処理用
@@ -73,6 +72,7 @@ logger = get_logger()
 logging.getLogger("openai").setLevel(logging.WARNING)
 logging.getLogger("openai.http_client").setLevel(logging.WARNING)
 
+
 def log_memory() -> None:
     process = psutil.Process()
     memory = process.memory_info().rss / 1024 / 1024  # MB
@@ -81,10 +81,6 @@ def log_memory() -> None:
 
 
 class AsyncLLMClient:
-
-    def __init__(self, use_instructor:bool=False) -> None:
-        self.use_instructor = use_instructor
-
     async def __aenter__(self) -> instructor.AsyncInstructor:
         dr_client, deployment_chat_base_url = initialize_deployment()
         
@@ -94,13 +90,12 @@ class AsyncLLMClient:
             timeout=90,
             max_retries=2,
         )
-
-        if self.use_instructor:
-            self.client = instructor.from_openai(
-                self.openai_client, mode=instructor.Mode.MD_JSON
-            )
-        else:
-            self.client = self.openai_client
+        '''
+        self.client = instructor.from_openai(
+            self.openai_client, mode=instructor.Mode.MD_JSON
+        )
+        '''
+        self.client = self.openai_client
         return self.client
 
     async def __aexit__(
@@ -221,18 +216,15 @@ def process_uploaded_file(uploaded_file):
 async def fetch_prompts_with_tools(use_tools_and_descriptions:bool=True, 
                                    prompt_type:str=None) -> str:
     if use_tools_and_descriptions:
-        system_prompt = system_prompt_switcher(prompt_type=prompt_type)
+        system_prompt = await system_prompt_switcher(prompt_type=prompt_type)
         logger.info(f"Use descriptions")
         df = await fetch_aicatalog_dataset()
         _data = df.to_dict(orient='list')
         print(_data)
         tools_and_descriptions = "\n".join([str(i)+':'+str(j) for i, j in zip(_data["tool_name"], _data['description'])])
-        if prompt_type is None:
-           system_prompt = system_prompt.format(tools_and_descriptions=tools_and_descriptions,
-                                                current_question_round=st.session_state.question_counter)
-        else:
-            system_prompt = system_prompt.format(tools_and_descriptions=tools_and_descriptions)
-        logger.info(f"system_prompt: {system_prompt}")
+        system_prompt = system_prompt.format(tools_and_descriptions=tools_and_descriptions,
+                                             current_question_round=st.session_state.question_counter)
+
     else:
         logger.info(f"Don't use descriptions")
         system_prompt = prompts.get_system_prompt()
@@ -252,7 +244,7 @@ async def prepare_telemetry_send(telemetry_json: dict | None) -> dict | None:
     telemetry_send["startTimestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return telemetry_send
 
-def system_prompt_switcher(prompt_type:str=None) -> str:
+async def system_prompt_switcher(prompt_type:str=None) -> str:
     """
     システムプロンプトを取得します。
     セッション状態に基づいて決定されます。
@@ -261,6 +253,7 @@ def system_prompt_switcher(prompt_type:str=None) -> str:
     prompt_typeが"question"の場合は質問作成のプロンプトを使用します。
     prompt_typeが"solution"の場合はソリューション提案のプロンプトを使用します。
     """
+    print('propt_type is ' + str(prompt_type))
     if prompt_type is None:
         logger.info(f"Use default system prompt")
         return prompts.get_system_prompt_description()
@@ -276,53 +269,23 @@ def system_prompt_switcher(prompt_type:str=None) -> str:
         # ソリューション提案のためのプロンプトを取得
         logger.info(f"Use solution proposal prompt")
         return prompts.get_system_prompt_for_solution()
-
-
-async def get_llm_responses(messages:str,
-                            use_instructor:bool=False,
-                            response_model:str=None) -> tuple[str, str]:
-    if use_instructor:
-        async with AsyncLLMClient(use_instructor=use_instructor) as client:
-            (
-            completion,
-            completion_org,
-            ) = await client.chat.completions.create_with_completion(
-            response_model=response_model,
-            model=ALTERNATIVE_LLM_BIG,
-            temperature=0.1,
-            messages=messages,
-            )
-        # ここのvalidationの処理はpydanticを使用してやりたいが分岐が多いので一旦動くのかを考える
-
-        response_content = completion
-        association_id = completion_org.datarobot_moderations["association_id"]
-
     else:
-        async with AsyncLLMClient(use_instructor=use_instructor) as client:
-            completion = await client.chat.completions.create(
-                response_format={"type": "json_object"},
-                model=ALTERNATIVE_LLM_BIG,
-                messages=messages,
-            )
-        response_content = completion.choices[0].message.content
-        association_id = completion.datarobot_moderations['association_id']
+        print("Error")
+        return prompts.get_system_prompt_description()
 
-    logger.debug("raw LLM response:" +completion)
-    return response_content, association_id
 
 @log_api_call
 # --- API 呼び出し関数 ---
 async def fetch_dx_tool_suggestions(chat_history_for_openai,
                                     use_tools_and_descriptions:bool=True,
                                     telemetry_json:dict | None =None,
-                                    prompt_type:str = None
+                                    prompt_type:str = None,
+                                    result_validation:bool = True,
                                     ) -> dict:
     """
     OpenAI APIを呼び出して、DXテーマ定義に関する応答を取得します。
     AIにはJSON形式で応答するよう指示します。
     """
-    # use_instructor = True if prompt_type is not None else False
-
     system_prompt = await fetch_prompts_with_tools(use_tools_and_descriptions,
                                                    prompt_type)
 
@@ -339,9 +302,8 @@ async def fetch_dx_tool_suggestions(chat_history_for_openai,
     telemetry_send = await prepare_telemetry_send(telemetry_json)
 
     try:
-
         async with AsyncLLMClient() as client:
-                #(
+            #(
             #    completion,
             #    completion_org,
             #) = await client.chat.completions.create_with_completion(
@@ -371,28 +333,31 @@ async def fetch_dx_tool_suggestions(chat_history_for_openai,
         print("--------------------------")
 
         parsed_response = json.loads(response_content)
-        # 応答のバリデーション。pydanticを使用していないため、手動でチェック。後で書き換える。
-        if not isinstance(parsed_response, dict) or "type" not in parsed_response or "message" not in parsed_response:
-            raise ValueError("AIの応答に必要な'type'または'message'フィールドが含まれていません。")
-        if parsed_response["type"] == "solution":
-            if "tools" not in parsed_response and "tool" not in parsed_response:
-                # 後方互換性のために単一ツールの場合も処理
-                raise ValueError("AIの'solution'タイプの応答に必要な'tools'または'tool'フィールドが含まれていません。")
-            if "todos" not in parsed_response:
-                raise ValueError("AIの'solution'タイプの応答に必要な'todos'フィールドが含まれていません。")
-            # 旧形式の応答を新形式に変換（後方互換性のため）
-            if "tool" in parsed_response and "tools" not in parsed_response:
-                parsed_response["tools"] = [parsed_response["tool"]]
-                parsed_response["primary_tool"] = parsed_response["tool"]
-                if "tool_combinations" not in parsed_response:
-                    parsed_response["tool_combinations"] = [{
-                        "tool": parsed_response["tool"],
-                        "purpose": "主要な解決手段",
-                        "todos": parsed_response["todos"]
-                    }]
-        if parsed_response["type"] == "questions" and "questions" not in parsed_response:
-            raise ValueError("AIの'questions'タイプの応答に必要な'questions'フィールドが含まれていません。")
 
+        logger.debug("parsed_responseはJSONとして読み込めました。")
+        # 応答のバリデーション。pydanticを使用していないため、手動でチェック。後で書き換える。
+        if result_validation:
+            if not isinstance(parsed_response, dict) or "type" not in parsed_response or "message" not in parsed_response:
+                raise ValueError("AIの応答に必要な'type'または'message'フィールドが含まれていません。")
+            if parsed_response["type"] == "solution":
+                if "tools" not in parsed_response and "tool" not in parsed_response:
+                    # 後方互換性のために単一ツールの場合も処理
+                    raise ValueError("AIの'solution'タイプの応答に必要な'tools'または'tool'フィールドが含まれていません。")
+                if "todos" not in parsed_response:
+                    raise ValueError("AIの'solution'タイプの応答に必要な'todos'フィールドが含まれていません。")
+                # 旧形式の応答を新形式に変換（後方互換性のため）
+                if "tool" in parsed_response and "tools" not in parsed_response:
+                    parsed_response["tools"] = [parsed_response["tool"]]
+                    parsed_response["primary_tool"] = parsed_response["tool"]
+                    if "tool_combinations" not in parsed_response:
+                        parsed_response["tool_combinations"] = [{
+                            "tool": parsed_response["tool"],
+                            "purpose": "主要な解決手段",
+                            "todos": parsed_response["todos"]
+                        }]
+            if parsed_response["type"] == "questions" and "questions" not in parsed_response:
+                raise ValueError("AIの'questions'タイプの応答に必要な'questions'フィールドが含まれていません。")
+        
         return parsed_response
 
     except openai.APIError as e:

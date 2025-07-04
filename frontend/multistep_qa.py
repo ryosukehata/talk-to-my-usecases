@@ -184,11 +184,6 @@ async def main():
                         key="use_tools_and_descriptions_key",
                         on_change=update_checkbox_state_descrptions,
                         value=True)
-    if st.session_state.use_tools_and_descriptions:
-        st.sidebar.checkbox("複数のシステムプロンプトを利用して追加の質問が必要か判断させる",
-                            key="use_multiple_system_prompts_key",
-                            on_change=update_checkbox_state_llms,
-                            value=True)
 
 
     # --- ステップ1: やりたいことの入力とファイルアップロード ---
@@ -264,24 +259,28 @@ async def main():
             ai_response = await fetch_dx_tool_suggestions(st.session_state.chat_history,
                                                           st.session_state.use_tools_and_descriptions,
                                                           telemetry_json=st.session_state.telemetry_json,
-                                                          prompt_type=st.session_state.conversation_stage)
+                                                          prompt_type=st.session_state.conversation_stage,
+                                                          result_validation=False)
             # AIからの応答を処理
             response_type = await handle_ai_response(ai_response)
+            print("Decision result is "+str(response_type))
             st.session_state.conversation_stage = response_type
 
     # --- AIからの追加質問作成 ---
-    if st.session_state.conversation_stage == PromptType.QUESTION and st.session_state <= MAX_QUESTION_ROUNDS:
+    if st.session_state.conversation_stage == PromptType.QUESTION and st.session_state.question_counter <= MAX_QUESTION_ROUNDS:
         # 残りの質問回数を表示
 
         ai_response = await fetch_dx_tool_suggestions(st.session_state.chat_history,
-                                                          st.session_state.use_tools_and_descriptions,
-                                                          telemetry_json=st.session_state.telemetry_json,
-                                                          prompt_type=st.session_state.conversation_stage)
+                                                      st.session_state.use_tools_and_descriptions,
+                                                      telemetry_json=st.session_state.telemetry_json,
+                                                      prompt_type=st.session_state.conversation_stage,
+                                                      result_validation=False)
         st.info(f"AIによる質問回数: {st.session_state.question_counter}回 / 最大5回中")
+        _handle_questions_response(ai_response)
+
 
     # -- AIからの質問からユーザーの回答を待つ --
     if st.session_state.conversation_stage == "AWAITING_ANSWERS":
-        _handle_questions_response(ai_response)
         # AIの質問を促すメッセージを表示
         st.info(st.session_state.chat_history[-1-len(st.session_state.ai_questions)]["content"])
 
@@ -290,11 +289,12 @@ async def main():
 
 
     # --- DXツールとToDoリストの生成 ---
-    if st.session_state.conversation_stage == PromptType.SOLUTION or st.session_state > MAX_QUESTION_ROUNDS:
+    if st.session_state.conversation_stage == PromptType.SOLUTION or st.session_state.question_counter > MAX_QUESTION_ROUNDS:
         ai_response = await fetch_dx_tool_suggestions(st.session_state.chat_history,
                                                       st.session_state.use_tools_and_descriptions,
                                                       telemetry_json=st.session_state.telemetry_json,
-                                                      prompt_type=st.session_state.conversation_stage)
+                                                      prompt_type=st.session_state.conversation_stage,
+                                                      result_validation=False)
         _handle_solution_response(ai_response)
                                                 
     # --- DXツールとToDoリストの表示 ---

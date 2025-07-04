@@ -33,6 +33,7 @@ from types import  TracebackType
 from typing import (
     Any,
     AsyncGenerator,
+    Optional,
     Type,
     TypeVar,
     cast,
@@ -66,6 +67,7 @@ from utils.dr_helper import (
     fetch_aicatalog_dataset,
     async_submit_actuals_to_datarobot
     )
+from utils.schema import PromptType
 
 logger = get_logger()
 logging.getLogger("openai").setLevel(logging.WARNING)
@@ -212,9 +214,10 @@ def process_uploaded_file(uploaded_file):
             "summary": f"処理エラー: {str(e)}"
         }
 
-async def fetch_prompts_with_tools(use_tools_and_descriptions:bool=True):
+async def fetch_prompts_with_tools(use_tools_and_descriptions:bool=True, 
+                                   prompt_type:str=None) -> str:
     if use_tools_and_descriptions:
-        system_prompt = prompts.get_system_prompt_description()
+        system_prompt = await system_prompt_switcher(prompt_type=prompt_type)
         logger.info(f"Use descriptions")
         df = await fetch_aicatalog_dataset()
         _data = df.to_dict(orient='list')
@@ -242,16 +245,50 @@ async def prepare_telemetry_send(telemetry_json: dict | None) -> dict | None:
     telemetry_send["startTimestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return telemetry_send
 
+async def system_prompt_switcher(prompt_type:Optional[PromptType]=None) -> str:
+    """
+    システムプロンプトを取得します。
+    セッション状態に基づいて決定されます。
+    prompt_typeがNoneの場合は全て同じシステムプロンプトで処理を行います。
+    prompt_typeが"decision"の場合は決定支援のプロンプトを使用します。
+    prompt_typeが"question"の場合は質問作成のプロンプトを使用します。
+    prompt_typeが"solution"の場合はソリューション提案のプロンプトを使用します。
+    """
+    logger.info('prompt_type is ' + str(prompt_type))
+    if prompt_type is None:
+        logger.info(f"Use default system prompt")
+        return prompts.get_system_prompt_description()
+    elif prompt_type == PromptType.DECISION:
+        # 決定支援のためのプロンプトを取得
+        logger.info(f"Use decision support prompt")
+        return prompts.get_system_prompt_for_decision()
+    elif prompt_type == PromptType.QUESTION:
+        # 質問応答のためのプロンプトを取得
+        logger.info(f"Use question answering prompt")
+        return prompts.get_system_prompt_for_questions()
+    elif prompt_type == PromptType.SOLUTION:
+        # ソリューション提案のためのプロンプトを取得
+        logger.info(f"Use solution proposal prompt")
+        return prompts.get_system_prompt_for_solution()
+    else:
+        print("Error")
+        return prompts.get_system_prompt_description()
+
+
 @log_api_call
 # --- API 呼び出し関数 ---
 async def fetch_dx_tool_suggestions(chat_history_for_openai,
                                     use_tools_and_descriptions:bool=True,
-                                    telemetry_json:dict | None =None) -> dict:
+                                    telemetry_json:dict | None =None,
+                                    prompt_type:str = None,
+                                    result_validation:bool = True,
+                                    ) -> dict:
     """
     OpenAI APIを呼び出して、DXテーマ定義に関する応答を取得します。
     AIにはJSON形式で応答するよう指示します。
     """
-    system_prompt = await fetch_prompts_with_tools(use_tools_and_descriptions)
+    system_prompt = await fetch_prompts_with_tools(use_tools_and_descriptions,
+                                                   prompt_type)
 
     messages: list[ChatCompletionMessageParam] = [
             ChatCompletionSystemMessageParam(
@@ -297,28 +334,31 @@ async def fetch_dx_tool_suggestions(chat_history_for_openai,
         print("--------------------------")
 
         parsed_response = json.loads(response_content)
-        # 応答のバリデーション。pydanticを使用していないため、手動でチェック。後で書き換える。
-        if not isinstance(parsed_response, dict) or "type" not in parsed_response or "message" not in parsed_response:
-            raise ValueError("AIの応答に必要な'type'または'message'フィールドが含まれていません。")
-        if parsed_response["type"] == "solution":
-            if "tools" not in parsed_response and "tool" not in parsed_response:
-                # 後方互換性のために単一ツールの場合も処理
-                raise ValueError("AIの'solution'タイプの応答に必要な'tools'または'tool'フィールドが含まれていません。")
-            if "todos" not in parsed_response:
-                raise ValueError("AIの'solution'タイプの応答に必要な'todos'フィールドが含まれていません。")
-            # 旧形式の応答を新形式に変換（後方互換性のため）
-            if "tool" in parsed_response and "tools" not in parsed_response:
-                parsed_response["tools"] = [parsed_response["tool"]]
-                parsed_response["primary_tool"] = parsed_response["tool"]
-                if "tool_combinations" not in parsed_response:
-                    parsed_response["tool_combinations"] = [{
-                        "tool": parsed_response["tool"],
-                        "purpose": "主要な解決手段",
-                        "todos": parsed_response["todos"]
-                    }]
-        if parsed_response["type"] == "questions" and "questions" not in parsed_response:
-            raise ValueError("AIの'questions'タイプの応答に必要な'questions'フィールドが含まれていません。")
 
+        logger.debug("parsed_responseはJSONとして読み込めました。")
+        # 応答のバリデーション。pydanticを使用していないため、手動でチェック。後で書き換える。
+        if result_validation:
+            if not isinstance(parsed_response, dict) or "type" not in parsed_response or "message" not in parsed_response:
+                raise ValueError("AIの応答に必要な'type'または'message'フィールドが含まれていません。")
+            if parsed_response["type"] == "solution":
+                if "tools" not in parsed_response and "tool" not in parsed_response:
+                    # 後方互換性のために単一ツールの場合も処理
+                    raise ValueError("AIの'solution'タイプの応答に必要な'tools'または'tool'フィールドが含まれていません。")
+                if "todos" not in parsed_response:
+                    raise ValueError("AIの'solution'タイプの応答に必要な'todos'フィールドが含まれていません。")
+                # 旧形式の応答を新形式に変換（後方互換性のため）
+                if "tool" in parsed_response and "tools" not in parsed_response:
+                    parsed_response["tools"] = [parsed_response["tool"]]
+                    parsed_response["primary_tool"] = parsed_response["tool"]
+                    if "tool_combinations" not in parsed_response:
+                        parsed_response["tool_combinations"] = [{
+                            "tool": parsed_response["tool"],
+                            "purpose": "主要な解決手段",
+                            "todos": parsed_response["todos"]
+                        }]
+            if parsed_response["type"] == "questions" and "questions" not in parsed_response:
+                raise ValueError("AIの'questions'タイプの応答に必要な'questions'フィールドが含まれていません。")
+        
         return parsed_response
 
     except openai.APIError as e:

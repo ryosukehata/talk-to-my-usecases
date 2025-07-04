@@ -144,7 +144,7 @@ def _update_session_with_answers(temp_answers: dict, user_responses_for_history:
     st.session_state.question_counter += 1
     st.rerun()
 
-def update_checkbox_state_descrptions():
+def update_checkbox_state_descriptions():
     st.session_state.use_tools_and_descriptions = st.session_state.use_tools_and_descriptions_key
 
 def update_checkbox_state_llms():

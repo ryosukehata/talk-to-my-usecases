@@ -15,7 +15,7 @@ logger = logging.getLogger("TalkToMyUseCase")
 
 MAX_QUESTION_ROUNDS = 5
 
-async def handel_first_question(combined_input: str) -> None:
+async def handle_first_question(combined_input: str) -> None:
     # New conversation session initial state defined as a dictionary
     session_first_question = {
         "chat_history": [

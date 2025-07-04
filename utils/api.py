@@ -253,7 +253,7 @@ async def system_prompt_switcher(prompt_type:str=None) -> str:
     prompt_typeが"question"の場合は質問作成のプロンプトを使用します。
     prompt_typeが"solution"の場合はソリューション提案のプロンプトを使用します。
     """
-    print('propt_type is ' + str(prompt_type))
+    print('prompt_type is ' + str(prompt_type))
     if prompt_type is None:
         logger.info(f"Use default system prompt")
         return prompts.get_system_prompt_description()

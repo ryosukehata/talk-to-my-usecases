@@ -33,6 +33,7 @@ from types import  TracebackType
 from typing import (
     Any,
     AsyncGenerator,
+    Optional,
     Type,
     TypeVar,
     cast,
@@ -244,7 +245,7 @@ async def prepare_telemetry_send(telemetry_json: dict | None) -> dict | None:
     telemetry_send["startTimestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return telemetry_send
 
-async def system_prompt_switcher(prompt_type:str=None) -> str:
+async def system_prompt_switcher(prompt_type:Optional[PromptType]=None) -> str:
     """
     システムプロンプトを取得します。
     セッション状態に基づいて決定されます。

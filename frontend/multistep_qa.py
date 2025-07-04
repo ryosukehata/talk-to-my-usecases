@@ -33,7 +33,7 @@ MAX_QUESTION_ROUNDS = 5
 st.set_page_config(page_title="DXテーマ定義支援アプリ", layout="wide")
 
 
-async def handel_first_question(combined_input) -> None:
+async def handle_first_question(combined_input) -> None:
     # 新しい会話セッションの初期状態を辞書で定義
     session_first_question = {
         "chat_history": [
@@ -163,7 +163,7 @@ def _update_session_with_answers(temp_answers: dict, user_responses_for_history:
     st.session_state.question_counter += 1  # 質問カウンターをインクリメント
     st.rerun()
 
-def update_checkbox_state_descrptions():
+def update_checkbox_state_descriptions():
     st.session_state.use_tools_and_descriptions = st.session_state.use_tools_and_descriptions_key
 
 def update_checkbox_state_llms():
@@ -182,7 +182,7 @@ async def main():
 
     st.sidebar.checkbox("説明の付与を有効化する",
                         key="use_tools_and_descriptions_key",
-                        on_change=update_checkbox_state_descrptions,
+                        on_change=update_checkbox_state_descriptions,
                         value=True)
 
 
@@ -245,7 +245,7 @@ async def main():
             st.session_state.telemetry_json = await get_telemetry_data()
             print(st.session_state.telemetry_json)
             
-            await handel_first_question(combined_input)
+            await handle_first_question(combined_input)
             st.rerun()
         else:
             st.warning("「やりたいこと」を入力してください。")

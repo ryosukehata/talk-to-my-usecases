@@ -13,6 +13,13 @@ from openai.types.chat.chat_completion_assistant_message_param import (
 
 
 from helpers import clear_data_callback, state_init,get_telemetry_data
+from streamlit_utils import (
+    handle_first_question,
+    _handle_questions_response,
+    _handle_solution_response,
+    handle_user_answers_form,
+    handle_ai_response,
+)
 
 sys.path.append("..")
 
@@ -32,145 +39,6 @@ MAX_QUESTION_ROUNDS = 5
 # --- Streamlit アプリケーション ---
 st.set_page_config(page_title="DXテーマ定義支援アプリ", layout="wide")
 
-
-async def handle_first_question(combined_input) -> None:
-    # 新しい会話セッションの初期状態を辞書で定義
-    session_first_question = {
-        "chat_history": [
-            ChatCompletionUserMessageParam(role="user",
-                                        content=combined_input)
-            ],
-        "conversation_stage": PromptType.DECISION,
-        "questions_asked_flag": False,
-        "ai_questions": [],
-        "user_answers": {},
-        "dx_solution": None,
-        "question_counter": 1  # 初期質問としてカウント
-    }
-    # セッションステートを一括更新
-    for key, value in session_first_question.items():
-        st.session_state[key] = value
-    logger.info("Session state has been updated by first question.")
-
-
-async def handle_ai_response(ai_response: dict) -> None:
-    """
-    AIからの応答を処理し、適切なセッション状態を設定します。
-    Args:
-        ai_response: AIからの応答辞書
-    """
-    if not ai_response or ai_response.get("type") == "error":
-        st.warning("AIとの通信に問題が発生しました。APIキーや入力内容を確認し、もう一度お試しください。")
-        st.session_state.conversation_stage = "INITIAL_INPUT"
-        st.rerun()
-        return
-
-    # AIの応答をチャット履歴に追加
-    st.session_state.chat_history.append(
-        ChatCompletionAssistantMessageParam(
-            role="assistant",
-            content=ai_response["message"]
-        )
-    )
-    
-    response_type = ai_response["type"]
-
-    
-    if response_type == PromptType.QUESTION or response_type == PromptType.SOLUTION:
-        return response_type
-    else:
-        st.error(f"予期しないレスポンスタイプ: {response_type}")
-        st.session_state.conversation_stage = "INITIAL_INPUT"
-        st.rerun()
-
-def _handle_questions_response(ai_response: dict) -> None:
-    """質問タイプの応答を処理します。"""
-    st.session_state.ai_questions = ai_response["questions"]
-    
-    # AIからの質問も個別に履歴に追加
-    for q_text in st.session_state.ai_questions:
-        st.session_state.chat_history.append(
-            ChatCompletionAssistantMessageParam(
-                role="assistant",
-                content=f"質問: {q_text}"
-            )
-        )
-    
-    st.session_state.conversation_stage = "AWAITING_ANSWERS"
-    st.session_state.questions_asked_flag = True
-    st.rerun()
-
-def _handle_solution_response(ai_response: dict) -> None:
-    """解決策タイプの応答を処理します。"""
-    st.session_state.dx_solution = ai_response
-    st.session_state.conversation_stage = "SHOWING_SOLUTION"
-    st.rerun()
-
-async def handle_user_answers_form() -> None:
-    """
-    AIからの質問に対するユーザーの回答フォームを処理します。
-    """
-    temp_answers = {}
-    for i, question_text in enumerate(st.session_state.ai_questions):
-        temp_answers[question_text] = st.text_area(
-            question_text,
-            key=f"answer_q_openai_{i}",
-            height=100
-        )
-
-    submitted = st.form_submit_button("回答を送信する")
-    if submitted:
-        _process_user_answers(temp_answers)
-
-def _process_user_answers(temp_answers: dict) -> None:
-    """
-    ユーザーの回答を検証し、セッション状態を更新します。
-    
-    Args:
-        temp_answers: 質問と回答のペアを含む辞書
-    """
-    all_answered = True
-    user_responses_for_history = []
-    
-    # 回答の検証とチャット履歴用の応答作成
-    for q_text, ans_text in temp_answers.items():
-        if not ans_text:
-            all_answered = False
-            st.warning(f"質問「{q_text}」に回答してください。")
-            break
-        user_responses_for_history.append(
-            ChatCompletionUserMessageParam(
-                role="user",
-                content=f"(質問「{q_text}」への回答) {ans_text}"
-            )
-        )
-    
-    # すべての質問に回答されている場合のみ処理を進める
-    if all_answered:
-        _update_session_with_answers(temp_answers, user_responses_for_history)
-
-def _update_session_with_answers(temp_answers: dict, user_responses_for_history: list) -> None:
-    """
-    ユーザーの回答でセッション状態を更新します。
-    
-    Args:
-        temp_answers: 質問と回答のペアを含む辞書
-        user_responses_for_history: チャット履歴に追加する応答のリスト
-    """
-    st.session_state.user_answers = temp_answers
-    st.session_state.chat_history.extend(user_responses_for_history)
-    st.session_state.conversation_stage = PromptType.DECISION
-    st.session_state.question_counter += 1  # 質問カウンターをインクリメント
-    st.rerun()
-
-def update_checkbox_state_descriptions():
-    st.session_state.use_tools_and_descriptions = st.session_state.use_tools_and_descriptions_key
-
-def update_checkbox_state_llms():
-    st.session_state.use_multiple_system_prompts = st.session_state.use_multiple_system_prompts_key
-
-
-
 async def main():
     """
     メインのアプリケーションロジックを実行します。
@@ -178,13 +46,6 @@ async def main():
     st.title("DXテーマ定義支援アプリ 💡")
     st.caption("ふわっとした「やりたいこと」から、DXのテーマとToDoを具体化します。(OpenAI API連携版)")
     await state_init()
-
-
-    st.sidebar.checkbox("説明の付与を有効化する",
-                        key="use_tools_and_descriptions_key",
-                        on_change=update_checkbox_state_descriptions,
-                        value=True)
-
 
     # --- ステップ1: やりたいことの入力とファイルアップロード ---
     st.header("「やりたいこと」を教えてください")

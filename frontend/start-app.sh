@@ -9,4 +9,4 @@
 
 echo "Starting App"
 # streamlit run 'app.py' --server.maxUploadSize 200
-streamlit run 'multistep_qa.py' --server.maxUploadSize 200
+streamlit run 'app.py' --server.maxUploadSize 200

@@ -14,6 +14,7 @@ from openai.types.chat.chat_completion_assistant_message_param import (
 
 
 from helpers import clear_data_callback, state_init, get_telemetry_data
+import multistep_qa
 
 sys.path.append("..")
 
@@ -312,7 +313,58 @@ async def main():
         st.session_state.conversation_stage = "SHOWING_SOLUTION" # Update stage
 
     if st.session_state.conversation_stage == "SHOWING_SOLUTION" and st.session_state.dx_solution:
-        display_dx_solution() # Call the utility function
+        solution = st.session_state.dx_solution
+    
+        # エラーチェック
+        if "tools" in solution and solution["tools"] and solution["tools"][0] != "エラー":
+            st.success("DXテーマの定義が完了しました！")
+        else:
+            st.error("DXテーマの定義中に問題が発生しました。")
+        
+        # 提案メッセージの表示
+        st.markdown(f"*{solution.get('message', '')}*")
+    
+        # 主要なDXツールの表示
+        primary_tool = solution.get('primary_tool', solution.get('tools', ['N/A'])[0] if solution.get('tools') else 'N/A')
+        st.subheader(f"提案する主要DXツール: **{primary_tool}**")
+    
+        # 複数のDXツールを組み合わせる場合
+        if 'tool_combinations' in solution and solution['tool_combinations']:
+            st.subheader("DXツールの組み合わせ:")
+        
+            for i, tool_combo in enumerate(solution['tool_combinations']):
+                with st.expander(f"{i+1}. {tool_combo.get('tool', 'N/A')} - {tool_combo.get('purpose', '')}"):
+                    st.markdown(f"**役割**: {tool_combo.get('purpose', 'N/A')}")
+                    st.markdown("**関連するToDoリスト**:")
+                    tool_todos = tool_combo.get('todos', [])
+                    if tool_todos:
+                        for j, todo_text in enumerate(tool_todos):
+                            st.checkbox(f"{todo_text}", key=f"todo_combo_{i}_{j}")
+                    else:
+                        st.write("このツールに関連するToDoリストはありません。")
+    
+        # 全体的なToDoリストの表示
+        st.subheader("全体的な推奨ToDoリスト:")
+        todos = solution.get('todos', [])
+        if todos:
+            for i, todo_text in enumerate(todos):
+                st.checkbox(f"{todo_text}", key=f"todo_overall_{i}")
+        else:
+            st.write("ToDoリストは提供されませんでした。")
+
+        # 使用されるDXツール一覧の表示
+        if 'tools' in solution and len(solution['tools']) > 1:
+            st.subheader("使用するDXツールの一覧:")
+            tool_list_html = ""
+            for tool in solution['tools']:
+                if tool == primary_tool:
+                    tool_list_html += f"- **{tool}** (主要ツール)\n"
+                else:
+                    tool_list_html += f"- {tool}\n"
+            st.markdown(tool_list_html)
+
+        st.markdown("---")
+
         # リセットボタン
         if st.button("もう一度、最初からやり直す", 
                      key="restart_process_openai",
@@ -321,8 +373,23 @@ async def main():
 
 
     # --- チャット履歴の表示 (サイドバー) ---
-    display_chat_history_sidebar() # Call the utility function
+    if st.sidebar.checkbox("チャット履歴を表示する", key="show_chat_history_openai", value=True):
+        st.sidebar.subheader("会話の履歴")
+        if not st.session_state.get('chat_history', []):
+            st.sidebar.write("まだ会話がありません。")
+        for entry in st.session_state.get('chat_history', []):
+            with st.sidebar.chat_message(entry["role"]):
+                st.markdown(entry["content"])
 
+    st.sidebar.markdown("---")
+    st.sidebar.header("アプリ構想について")
+    st.sidebar.markdown("""
+    このアプリはAIアシスタントを利用してAIとの対話を行なっています。
+    実現したいことに対してDXのどんな技術で解決できそうか判断してくれます。
+    """)
 
-asyncio.run(main())
+if os.environ.get("MULTISTEP") == "true":
+    asyncio.run(multistep_qa.main())
+else:
+    asyncio.run(main())
 

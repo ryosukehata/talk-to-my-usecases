@@ -44,7 +44,7 @@ async def handle_ai_response(ai_response: dict) -> str:
         st.warning("AIとの通信に問題が発生しました。APIキーや入力内容を確認し、もう一度お試しください。")
         st.session_state.conversation_stage = "INITIAL_INPUT"
         st.rerun()
-        return "INITIAL_INPUT"
+        return
 
     # Add AI response to chat history
     st.session_state.chat_history.append(
@@ -62,7 +62,7 @@ async def handle_ai_response(ai_response: dict) -> str:
         st.error(f"予期しないレスポンスタイプ: {response_type}")
         st.session_state.conversation_stage = "INITIAL_INPUT"
         st.rerun()
-        return "INITIAL_INPUT"
+        return
 
 def _handle_questions_response(ai_response: dict) -> None:
     """Handles question type responses."""

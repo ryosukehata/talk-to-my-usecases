@@ -388,7 +388,7 @@ async def main():
     実現したいことに対してDXのどんな技術で解決できそうか判断してくれます。
     """)
 
-if os.environ.get("MULTISTEP") == "true":
+if os.environ.get("MULTISTEP", "False") == "True":
     asyncio.run(multistep_qa.main())
 else:
     asyncio.run(main())

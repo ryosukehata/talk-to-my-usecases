@@ -198,11 +198,11 @@ def display_dx_solution():
         st.subheader("使用するDXツールの一覧:")
         tool_list_html = ""
         for tool in solution['tools']:
-                if tool == primary_tool:
-                    tool_list_html += f"- **{tool}** (主要ツール)\n"
-                else:
-                    tool_list_html += f"- {tool}\n"
-            st.markdown(tool_list_html)
+            if tool == primary_tool:
+                tool_list_html += f"- **{tool}** (主要ツール)\n"
+            else:
+                tool_list_html += f"- {tool}\n"
+        st.markdown(tool_list_html)
 
     st.markdown("---")
 

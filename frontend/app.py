@@ -13,11 +13,7 @@ from openai.types.chat.chat_completion_assistant_message_param import (
     ChatCompletionAssistantMessageParam,
 )
 
-# --- Streamlit アプリケーション ---
-st.set_page_config(page_title="DXテーマ定義支援アプリ", layout="wide")
-
 from helpers import clear_data_callback, state_init, get_telemetry_data
-import multistep_qa
 
 sys.path.append("..")
 
@@ -27,7 +23,8 @@ from utils.schema import PromptType
 
 logger = logging.getLogger("TalkToMyUseCase")
 
-
+# --- Streamlit アプリケーション ---
+st.set_page_config(page_title="DXテーマ定義支援アプリ", layout="wide")
 
 
 async def handle_first_question(combined_input) -> None:
@@ -389,8 +386,5 @@ async def main():
     実現したいことに対してDXのどんな技術で解決できそうか判断してくれます。
     """)
 if __name__ == "__main__":
-    if os.environ.get("MULTISTEP", "False") == "True":
-        asyncio.run(multistep_qa.main())
-    else:
-        asyncio.run(main())
+    asyncio.run(main())
 

@@ -233,4 +233,6 @@ async def main():
     """)
 
 if __name__ == "__main__":
+    # --- Streamlit アプリケーション ---
+    st.set_page_config(page_title="DXテーマ定義支援アプリ", layout="wide")
     asyncio.run(main())

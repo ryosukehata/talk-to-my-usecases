@@ -90,6 +90,7 @@ llm_deployment_env_name: str = "LLM_DEPLOYMENT_ID"
 
 aicatalog_env_name: str = "AICATALOG_ID"
 
+
 class LLMDeployment(DynamicSettings):
     id: str = Field(
         validation_alias=AliasChoices(
@@ -97,6 +98,7 @@ class LLMDeployment(DynamicSettings):
             llm_deployment_env_name,
         )
     )
+
 
 class AICatalogDataset(DynamicSettings):
     id: str = Field(

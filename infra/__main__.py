@@ -64,7 +64,6 @@ if settings_generative.LLM == LLMs.DEPLOYED_LLM:
 check_feature_flags(PROJECT_ROOT / "infra" / "feature_flag_requirements.yaml")
 
 
-
 if "DATAROBOT_DEFAULT_USE_CASE" in os.environ:
     use_case_id = os.environ["DATAROBOT_DEFAULT_USE_CASE"]
     pulumi.info(f"Using existing use case '{use_case_id}'")
@@ -154,11 +153,7 @@ llm_deployment = CustomModelDeployment(
 
 ai_catarog_dataset = datarobot.DatasetFromFile(
     resource_name=f"UseCase Analyst AI Catalog Tools Dataset [{PROJECT_NAME}]",
-    file_path=str(
-        PROJECT_ROOT
-        / "assets"
-        / "tools_and_descriptions.csv"
-    ),
+    file_path=str(PROJECT_ROOT / "assets" / "tools_and_descriptions.csv"),
     use_case_ids=[use_case.id],
 )
 
@@ -179,7 +174,6 @@ app_runtime_parameters = [
         value=os.environ.get("MULTISTEP", "False"),
     ),
 ]
-
 
 
 app_source = datarobot.ApplicationSource(

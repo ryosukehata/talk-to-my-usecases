@@ -48,27 +48,27 @@ def log_error_details(error: BaseException, context: dict[str, Any]) -> None:
 
 
 empty_session_state = {
-    'conversation_stage': "INITIAL_INPUT",
-    'user_request': "",
-    'ai_questions': [],
-    'user_answers': {},
-    'dx_solution': None,
-    'chat_history': [],
-    'questions_asked_flag': False,
-    'question_counter': 0,
-    'uploaded_files': {},
-    'file_summaries': {},
+    "conversation_stage": "INITIAL_INPUT",
+    "user_request": "",
+    "ai_questions": [],
+    "user_answers": {},
+    "dx_solution": None,
+    "chat_history": [],
+    "questions_asked_flag": False,
+    "question_counter": 0,
+    "uploaded_files": {},
+    "file_summaries": {},
     "file_uploader_key": 0,
-    'user_request_buffer': "",
-    "use_tools_and_descriptions":True,
+    "user_request_buffer": "",
+    "use_tools_and_descriptions": True,
 }
-
 
 
 def state_empty() -> None:
     for key, value in empty_session_state.items():
         st.session_state[key] = value
     logger.info("Session state has been reset to its initial empty state.")
+
 
 def clear_data_callback() -> None:
     """Callback function to clear all data from session state and cache"""
@@ -95,7 +95,7 @@ async def state_init() -> None:
     if "datarobot_uid" not in st.session_state:
         user_id = generate_user_id()
     else:
-        user_id = st.session_state.datarobot_uid    
+        user_id = st.session_state.datarobot_uid
 
     logger.info(f"User ID: {user_id}")
     if "user_email" not in st.session_state:
@@ -111,7 +111,11 @@ async def get_telemetry_data() -> dict[str, str | None]:
     if not st.session_state.get("user_email"):
         logger.warning("User email not found in session state.")
     return {
-        "user_email": st.session_state.user_email if "user_email" in st.session_state else None,
+        "user_email": st.session_state.user_email
+        if "user_email" in st.session_state
+        else None,
         "first_question": st.session_state.user_request,
-        "filename": list(st.session_state.uploaded_files.keys()) if "uploaded_files" in st.session_state else []
+        "filename": list(st.session_state.uploaded_files.keys())
+        if "uploaded_files" in st.session_state
+        else [],
     }

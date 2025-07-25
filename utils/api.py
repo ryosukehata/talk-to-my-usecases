@@ -66,22 +66,21 @@ def log_memory() -> None:
     logger.info(f"Memory usage: {memory:.2f} MB")
 
 
-
 class AsyncLLMClient:
     async def __aenter__(self) -> instructor.AsyncInstructor:
         dr_client, deployment_chat_base_url = initialize_deployment()
-        
+
         self.openai_client = AsyncOpenAI(
             api_key=dr_client.token,
             base_url=deployment_chat_base_url,
             timeout=90,
             max_retries=2,
         )
-        '''
+        """
         self.client = instructor.from_openai(
             self.openai_client, mode=instructor.Mode.MD_JSON
         )
-        '''
+        """
         self.client = self.openai_client
         return self.client
 
@@ -139,6 +138,7 @@ def cache(f: T) -> T:
 
         return cast(T, wrapper)
 
+
 # --- ファイルアップロード処理関数 ---
 def process_uploaded_file(uploaded_file):
     """アップロードされたファイルを処理し、内容を抽出します。"""
@@ -146,7 +146,7 @@ def process_uploaded_file(uploaded_file):
     file_name = uploaded_file.name
 
     logger.info(f"Processing uploaded file: {file_name} ({file_type})")
-    
+
     file_content = None
     file_summary = None
 
@@ -158,14 +158,20 @@ def process_uploaded_file(uploaded_file):
             file_content = df.head(10).to_dict()
             file_summary = f"CSVファイル: {len(df.index)}行 × {len(df.columns)}列。列名: {', '.join(df.columns.tolist())}"
 
-        elif file_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" or \
-            file_type == "application/vnd.ms-excel":
+        elif (
+            file_type
+            == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            or file_type == "application/vnd.ms-excel"
+        ):
             # Excelファイルの処理
             df = pd.read_excel(uploaded_file)
             file_content = df.head(10).to_dict()  # 最初の10行を辞書形式で取得
             file_summary = f"Excelファイル: {len(df.index)}行 × {len(df.columns)}列。列名: {', '.join(df.columns.tolist())}"
 
-        elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        elif (
+            file_type
+            == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ):
             # Word文書の処理
             doc = Document(uploaded_file)
             text_content = []
@@ -175,7 +181,10 @@ def process_uploaded_file(uploaded_file):
             file_content = "\n".join(text_content)
             file_summary = f"Word文書: {len(text_content)}段落。先頭100文字: {file_content[:100]}..."
 
-        elif file_type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+        elif (
+            file_type
+            == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        ):
             # PowerPointの処理
             prs = Presentation(uploaded_file)
             text_content = []
@@ -193,48 +202,60 @@ def process_uploaded_file(uploaded_file):
         return {
             "content_type": file_type,
             "content": file_content,
-            "summary": file_summary
+            "summary": file_summary,
         }
 
     except Exception as e:
         return {
             "content_type": file_type,
             "content": f"ファイル処理中にエラーが発生しました: {str(e)}",
-            "summary": f"処理エラー: {str(e)}"
+            "summary": f"処理エラー: {str(e)}",
         }
 
-async def fetch_prompts_with_tools(use_tools_and_descriptions:bool=True, 
-                                   prompt_type:str=None) -> str:
+
+async def fetch_prompts_with_tools(
+    use_tools_and_descriptions: bool = True, prompt_type: str = None
+) -> str:
     if use_tools_and_descriptions:
         system_prompt = await system_prompt_switcher(prompt_type=prompt_type)
         logger.info("Use descriptions")
         df = await fetch_aicatalog_dataset()
-        _data = df.to_dict(orient='list')
+        _data = df.to_dict(orient="list")
         print(_data)
-        tools_and_descriptions = "\n".join([str(i)+':'+str(j) for i, j in zip(_data["tool_name"], _data['description'])])
-        system_prompt = system_prompt.format(tools_and_descriptions=tools_and_descriptions,
-                                             current_question_round=st.session_state.question_counter)
+        tools_and_descriptions = "\n".join(
+            [
+                str(i) + ":" + str(j)
+                for i, j in zip(_data["tool_name"], _data["description"])
+            ]
+        )
+        system_prompt = system_prompt.format(
+            tools_and_descriptions=tools_and_descriptions,
+            current_question_round=st.session_state.question_counter,
+        )
 
     else:
         logger.info("Don't use descriptions")
         system_prompt = prompts.get_system_prompt()
         tools = prompts.DX_TOOLS
         tools = ", ".join(tools)
-        system_prompt = system_prompt.format(tools=tools,
-                                             current_question_round=st.session_state.question_counter)
-        
+        system_prompt = system_prompt.format(
+            tools=tools, current_question_round=st.session_state.question_counter
+        )
+
     return system_prompt
+
 
 async def prepare_telemetry_send(telemetry_json: dict | None) -> dict | None:
     """telemetry_jsonをdeepcopyし、startTimestampを追加して返す"""
     if not telemetry_json:
         return None
-    
+
     telemetry_send = deepcopy(telemetry_json)
     telemetry_send["startTimestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return telemetry_send
 
-async def system_prompt_switcher(prompt_type:Optional[PromptType]=None) -> str:
+
+async def system_prompt_switcher(prompt_type: Optional[PromptType] = None) -> str:
     """
     システムプロンプトを取得します。
     セッション状態に基づいて決定されます。
@@ -243,7 +264,7 @@ async def system_prompt_switcher(prompt_type:Optional[PromptType]=None) -> str:
     prompt_typeが"question"の場合は質問作成のプロンプトを使用します。
     prompt_typeが"solution"の場合はソリューション提案のプロンプトを使用します。
     """
-    logger.info('prompt_type is ' + str(prompt_type))
+    logger.info("prompt_type is " + str(prompt_type))
     if prompt_type is None:
         logger.info("Use default system prompt")
         return prompts.get_system_prompt_description()
@@ -266,37 +287,38 @@ async def system_prompt_switcher(prompt_type:Optional[PromptType]=None) -> str:
 
 @log_api_call
 # --- API 呼び出し関数 ---
-async def fetch_dx_tool_suggestions(chat_history_for_openai,
-                                    use_tools_and_descriptions:bool=True,
-                                    telemetry_json:dict | None =None,
-                                    prompt_type:str = None,
-                                    result_validation:bool = True,
-                                    ) -> dict:
+async def fetch_dx_tool_suggestions(
+    chat_history_for_openai,
+    use_tools_and_descriptions: bool = True,
+    telemetry_json: dict | None = None,
+    prompt_type: str = None,
+    result_validation: bool = True,
+) -> dict:
     """
     OpenAI APIを呼び出して、DXテーマ定義に関する応答を取得します。
     AIにはJSON形式で応答するよう指示します。
     """
-    system_prompt = await fetch_prompts_with_tools(use_tools_and_descriptions,
-                                                   prompt_type)
+    system_prompt = await fetch_prompts_with_tools(
+        use_tools_and_descriptions, prompt_type
+    )
 
     messages: list[ChatCompletionMessageParam] = [
-            ChatCompletionSystemMessageParam(
-                role="system", content=system_prompt
-            )]
+        ChatCompletionSystemMessageParam(role="system", content=system_prompt)
+    ]
 
-    messages.extend(chat_history_for_openai) # これまでの会話履歴を追加
+    messages.extend(chat_history_for_openai)  # これまでの会話履歴を追加
     print(messages)
 
-    #　送信するデータのハンドリング
+    # 送信するデータのハンドリング
 
     telemetry_send = await prepare_telemetry_send(telemetry_json)
 
     try:
         async with AsyncLLMClient() as client:
-            #(
+            # (
             #    completion,
             #    completion_org,
-            #) = await client.chat.completions.create_with_completion(
+            # ) = await client.chat.completions.create_with_completion(
             completion = await client.chat.completions.create(
                 response_format={"type": "json_object"},
                 model="datarobot-deployed-llm",
@@ -304,18 +326,18 @@ async def fetch_dx_tool_suggestions(chat_history_for_openai,
             )
         print(completion)
         response_content = completion.choices[0].message.content
-        association_id = completion.datarobot_moderations['association_id']
+        association_id = completion.datarobot_moderations["association_id"]
         logger.info(f"Association ID: {association_id}")
         logger.info(f"telemetry_send: {telemetry_send}")
         logger.info(f"telemetry_send is truthy: {bool(telemetry_send)}")
 
         if telemetry_send:
             logger.info("submit telemetry")
-            #task = asyncio.create_task(
+            # task = asyncio.create_task(
             await async_submit_actuals_to_datarobot(
-                    association_id=association_id, telemetry_json=telemetry_send
-                )
-            #)
+                association_id=association_id, telemetry_json=telemetry_send
+            )
+            # )
 
         # デバッグ用にAIの生の応答をコンソールに出力
         print("--- OpenAI Raw Response ---")
@@ -327,53 +349,78 @@ async def fetch_dx_tool_suggestions(chat_history_for_openai,
         logger.debug("parsed_responseはJSONとして読み込めました。")
         # 応答のバリデーション。pydanticを使用していないため、手動でチェック。後で書き換える。
         if result_validation:
-            if not isinstance(parsed_response, dict) or "type" not in parsed_response or "message" not in parsed_response:
-                raise ValueError("AIの応答に必要な'type'または'message'フィールドが含まれていません。")
+            if (
+                not isinstance(parsed_response, dict)
+                or "type" not in parsed_response
+                or "message" not in parsed_response
+            ):
+                raise ValueError(
+                    "AIの応答に必要な'type'または'message'フィールドが含まれていません。"
+                )
             if parsed_response["type"] == "solution":
                 if "tools" not in parsed_response and "tool" not in parsed_response:
                     # 後方互換性のために単一ツールの場合も処理
-                    raise ValueError("AIの'solution'タイプの応答に必要な'tools'または'tool'フィールドが含まれていません。")
+                    raise ValueError(
+                        "AIの'solution'タイプの応答に必要な'tools'または'tool'フィールドが含まれていません。"
+                    )
                 if "todos" not in parsed_response:
-                    raise ValueError("AIの'solution'タイプの応答に必要な'todos'フィールドが含まれていません。")
+                    raise ValueError(
+                        "AIの'solution'タイプの応答に必要な'todos'フィールドが含まれていません。"
+                    )
                 # 旧形式の応答を新形式に変換（後方互換性のため）
                 if "tool" in parsed_response and "tools" not in parsed_response:
                     parsed_response["tools"] = [parsed_response["tool"]]
                     parsed_response["primary_tool"] = parsed_response["tool"]
                     if "tool_combinations" not in parsed_response:
-                        parsed_response["tool_combinations"] = [{
-                            "tool": parsed_response["tool"],
-                            "purpose": "主要な解決手段",
-                            "todos": parsed_response["todos"]
-                        }]
-            if parsed_response["type"] == "questions" and "questions" not in parsed_response:
-                raise ValueError("AIの'questions'タイプの応答に必要な'questions'フィールドが含まれていません。")
-        
+                        parsed_response["tool_combinations"] = [
+                            {
+                                "tool": parsed_response["tool"],
+                                "purpose": "主要な解決手段",
+                                "todos": parsed_response["todos"],
+                            }
+                        ]
+            if (
+                parsed_response["type"] == "questions"
+                and "questions" not in parsed_response
+            ):
+                raise ValueError(
+                    "AIの'questions'タイプの応答に必要な'questions'フィールドが含まれていません。"
+                )
+
         return parsed_response
 
     except openai.APIError as e:
         st.error(f"OpenAI APIエラーが発生しました: {e}")
         print(f"OpenAI API Error: {e}")
-        return {"type": "error", "message": f"APIとの通信に失敗しました。詳細: {str(e)}"}
+        return {
+            "type": "error",
+            "message": f"APIとの通信に失敗しました。詳細: {str(e)}",
+        }
     except json.JSONDecodeError:
-        st.error(f"AIの応答の解析に失敗しました。AIが有効なJSONを返さなかった可能性があります。Raw response: {response_content}")
+        st.error(
+            f"AIの応答の解析に失敗しました。AIが有効なJSONを返さなかった可能性があります。Raw response: {response_content}"
+        )
         print(f"JSONDecodeError. Raw response: {response_content}")
         return {"type": "error", "message": "AIの応答形式が正しくありません。"}
-    except ValueError as e: # 自作のバリデーションエラー
+    except ValueError as e:  # 自作のバリデーションエラー
         st.error(f"AIの応答構造が不正です: {e} Raw response: {response_content}")
         print(f"ValueError (response structure). Raw response: {response_content}")
-        return {"type": "error", "message": f"AIの応答構造が予期されたものではありません。詳細: {str(e)}"}
+        return {
+            "type": "error",
+            "message": f"AIの応答構造が予期されたものではありません。詳細: {str(e)}",
+        }
     except Exception as e:
         st.error(f"予期せぬエラーが発生しました: {e}")
         print(f"Unexpected error: {e}")
-        return {"type": "error", "message": f"処理中に予期せぬエラーが発生しました。詳細: {str(e)}"}
-
-
+        return {
+            "type": "error",
+            "message": f"処理中に予期せぬエラーが発生しました。詳細: {str(e)}",
+        }
 
     # --- ファイルのAI要約処理 ---
+
+
 def summarize_file_content(file_info, filename):
     """AIを使用してファイルの内容を要約します。"""
     # ここではシンプルな要約を返しますが、将来的にはAI要約機能を実装できます
     return file_info["summary"]
-
-
-

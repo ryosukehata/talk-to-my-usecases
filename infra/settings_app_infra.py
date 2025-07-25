@@ -100,7 +100,6 @@ def get_app_files(
         ((application_path / "metadata.yaml").as_posix(), "metadata.yaml")
     )
 
-
     EXCLUDE_PATTERNS = [re.compile(pattern) for pattern in [r".*\.pyc"]]
     source_files = [
         (file_path, file_name)

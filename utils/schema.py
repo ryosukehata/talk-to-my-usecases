@@ -85,9 +85,7 @@ class Tool(BaseModel):
         return f"function: {self.name}{self.signature}\n{self.docstring}\n\n"
 
 
-Component = Union[
-    str,
-]
+Component = Union[str,]
 
 
 class AnalystChatMessage(BaseModel):

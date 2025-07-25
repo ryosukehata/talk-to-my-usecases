@@ -12,61 +12,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from __future__ import annotations
-import io # ファイル処理用
-import base64 # ファイルエンコーディング用
-import os # ファイルパス処理用
 
-import ast
 import asyncio
-import inspect
 import json
 import logging
-from joblib import Memory
-from copy import deepcopy
-from datetime import datetime
-
-import re
 import sys
 import tempfile
-from dataclasses import dataclass
-from types import  TracebackType
+from copy import deepcopy
+from datetime import datetime
+from types import TracebackType
 from typing import (
     Any,
-    AsyncGenerator,
     Optional,
     Type,
     TypeVar,
     cast,
 )
 
-import datarobot as dr
 import instructor
-import numpy as np
+import openai
 import pandas as pd
 import psutil
-from datarobot.client import RESTClientObject
-import openai
+import streamlit as st
+
+# Office文書読み込み用のライブラリ
+from docx import Document  # Word文書処理用
+from joblib import Memory
 from openai import AsyncOpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from openai.types.chat.chat_completion_system_message_param import (
     ChatCompletionSystemMessageParam,
 )
-import streamlit as st
-
-# Office文書読み込み用のライブラリ
-from docx import Document  # Word文書処理用
 from pptx import Presentation  # PowerPoint処理用
-
-from pydantic import ValidationError
 
 sys.path.append("..")
 from utils import prompts
-from utils.logging_helper import get_logger, log_api_call
 from utils.dr_helper import (
-    initialize_deployment,
+    async_submit_actuals_to_datarobot,
     fetch_aicatalog_dataset,
-    async_submit_actuals_to_datarobot
-    )
+    initialize_deployment,
+)
+from utils.logging_helper import get_logger, log_api_call
 from utils.schema import PromptType
 
 logger = get_logger()
@@ -158,6 +144,9 @@ def process_uploaded_file(uploaded_file):
     """アップロードされたファイルを処理し、内容を抽出します。"""
     file_type = uploaded_file.type
     file_name = uploaded_file.name
+
+    logger.info(f"Processing uploaded file: {file_name} ({file_type})")
+    
     file_content = None
     file_summary = None
 
@@ -218,7 +207,7 @@ async def fetch_prompts_with_tools(use_tools_and_descriptions:bool=True,
                                    prompt_type:str=None) -> str:
     if use_tools_and_descriptions:
         system_prompt = await system_prompt_switcher(prompt_type=prompt_type)
-        logger.info(f"Use descriptions")
+        logger.info("Use descriptions")
         df = await fetch_aicatalog_dataset()
         _data = df.to_dict(orient='list')
         print(_data)
@@ -227,7 +216,7 @@ async def fetch_prompts_with_tools(use_tools_and_descriptions:bool=True,
                                              current_question_round=st.session_state.question_counter)
 
     else:
-        logger.info(f"Don't use descriptions")
+        logger.info("Don't use descriptions")
         system_prompt = prompts.get_system_prompt()
         tools = prompts.DX_TOOLS
         tools = ", ".join(tools)
@@ -256,19 +245,19 @@ async def system_prompt_switcher(prompt_type:Optional[PromptType]=None) -> str:
     """
     logger.info('prompt_type is ' + str(prompt_type))
     if prompt_type is None:
-        logger.info(f"Use default system prompt")
+        logger.info("Use default system prompt")
         return prompts.get_system_prompt_description()
     elif prompt_type == PromptType.DECISION:
         # 決定支援のためのプロンプトを取得
-        logger.info(f"Use decision support prompt")
+        logger.info("Use decision support prompt")
         return prompts.get_system_prompt_for_decision()
     elif prompt_type == PromptType.QUESTION:
         # 質問応答のためのプロンプトを取得
-        logger.info(f"Use question answering prompt")
+        logger.info("Use question answering prompt")
         return prompts.get_system_prompt_for_questions()
     elif prompt_type == PromptType.SOLUTION:
         # ソリューション提案のためのプロンプトを取得
-        logger.info(f"Use solution proposal prompt")
+        logger.info("Use solution proposal prompt")
         return prompts.get_system_prompt_for_solution()
     else:
         print("Error")

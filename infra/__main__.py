@@ -36,17 +36,14 @@ from infra import (
 )
 from infra.components.dr_credential import (
     get_credential_runtime_parameter_values,
-    get_database_credentials,
     get_llm_credentials,
 )
 from infra.settings_proxy_llm import CHAT_MODEL_NAME
 from utils.resources import (
+    aicatalog_env_name,
     app_env_name,
     llm_deployment_env_name,
-    aicatalog_env_name,
 )
-from utils.schema import AppInfra
-
 
 # ガードレールの設定
 guard_configurations = settings_guardrails.guardrails

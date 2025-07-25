@@ -1,24 +1,15 @@
+import asyncio
 import logging
 import sys
-import asyncio
 
 import streamlit as st
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-from openai.types.chat.chat_completion_user_message_param import (
-    ChatCompletionUserMessageParam,
-)
-from openai.types.chat.chat_completion_assistant_message_param import (
-    ChatCompletionAssistantMessageParam,
-)
-
-
-from helpers import clear_data_callback, state_init,get_telemetry_data
+from helpers import clear_data_callback, get_telemetry_data, state_init
 from streamlit_utils import (
-    handle_first_question,
     _handle_questions_response,
     _handle_solution_response,
-    handle_user_answers_form,
     handle_ai_response,
+    handle_first_question,
+    handle_user_answers_form,
 )
 
 sys.path.append("..")
@@ -28,6 +19,7 @@ from utils.api import (
     process_uploaded_file,
 )
 from utils.schema import PromptType
+
 # --- OpenAI APIの設定 ---
 
 

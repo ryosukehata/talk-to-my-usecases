@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Generator, Literal, Optional, Union
+from enum import Enum
+from typing import Any, Callable, Literal, Optional, Union
 
 import pandas as pd
 from openai.types.chat.chat_completion_assistant_message_param import (
@@ -34,16 +34,8 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    GetJsonSchemaHandler,
-    ValidationInfo,
-    computed_field,
-    field_validator,
-    model_validator,
 )
 from typing_extensions import TypedDict
-
-
-from enum import Enum
 
 
 class PromptType(str, Enum):

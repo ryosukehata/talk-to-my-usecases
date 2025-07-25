@@ -1,14 +1,13 @@
 import logging
+
 import streamlit as st
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-from openai.types.chat.chat_completion_user_message_param import (
-    ChatCompletionUserMessageParam,
-)
 from openai.types.chat.chat_completion_assistant_message_param import (
     ChatCompletionAssistantMessageParam,
 )
+from openai.types.chat.chat_completion_user_message_param import (
+    ChatCompletionUserMessageParam,
+)
 
-from utils.api import fetch_dx_tool_suggestions
 from utils.schema import PromptType
 
 logger = logging.getLogger("TalkToMyUseCase")

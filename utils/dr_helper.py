@@ -1,16 +1,15 @@
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import datarobot as dr
 import httpx
+import pandas as pd
 from datarobot.client import RESTClientObject
 from pydantic import ValidationError
-import pandas as pd
-from typing import cast
 
 from utils.logging_helper import get_logger
-from utils.resources import LLMDeployment, AICatalogDataset
+from utils.resources import AICatalogDataset, LLMDeployment
 
 logger = get_logger()
 
@@ -57,7 +56,7 @@ async def download_registry_dataset(
     Returns:
         list[pd.DataFrame]: list of data
     """
-    downloaded_datasets = []
+
     dr.Client()
     dataset = dr.Dataset.get(dataset_id)
     if (

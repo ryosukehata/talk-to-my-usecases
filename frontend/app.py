@@ -1,30 +1,27 @@
-import os
+import asyncio
 import logging
 import sys
-import asyncio
 
 import streamlit as st
-
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-from openai.types.chat.chat_completion_user_message_param import (
-    ChatCompletionUserMessageParam,
-)
+from helpers import clear_data_callback, get_telemetry_data, state_init
 from openai.types.chat.chat_completion_assistant_message_param import (
     ChatCompletionAssistantMessageParam,
 )
-
-from helpers import clear_data_callback, state_init, get_telemetry_data
+from openai.types.chat.chat_completion_user_message_param import (
+    ChatCompletionUserMessageParam,
+)
 
 sys.path.append("..")
 
-from utils.api import process_uploaded_file, fetch_dx_tool_suggestions
+from utils.api import fetch_dx_tool_suggestions, process_uploaded_file
 from utils.schema import PromptType
-
 
 logger = logging.getLogger("TalkToMyUseCase")
 
 # --- Streamlit アプリケーション ---
 st.set_page_config(page_title="DXテーマ定義支援アプリ", layout="wide")
+
+MAX_QUESTION_ROUNDS=5
 
 
 async def handle_first_question(combined_input) -> None:

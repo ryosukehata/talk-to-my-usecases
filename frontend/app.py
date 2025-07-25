@@ -15,7 +15,7 @@ from openai.types.chat.chat_completion_assistant_message_param import (
 
 
 from helpers import clear_data_callback, state_init, get_telemetry_data
-import multistep_qa
+import multistep_qa.main as multistep_qa_main
 
 sys.path.append("..")
 
@@ -390,7 +390,7 @@ async def main():
     """)
 
 if os.environ.get("MULTISTEP", "False") == "True":
-    asyncio.run(multistep_qa.main())
+    asyncio.run(multistep_qa_main())
 else:
     asyncio.run(main())
 

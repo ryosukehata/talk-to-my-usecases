@@ -30,8 +30,8 @@ from utils.schema import LLMDeploymentSettings
 CHAT_MODEL_NAME = os.getenv("CHAT_MODEL_NAME")
 
 custom_model_args = CustomModelArgs(
-    resource_name=f"Data Analyst Proxy LLM Custom Model [{PROJECT_NAME}]",
-    name=f"Data Analyst Proxy LLM Custom Model [{PROJECT_NAME}]",
+    resource_name=f"UseCase Analyst Proxy LLM Custom Model [{PROJECT_NAME}]",
+    name=f"UseCase Analyst Proxy LLM Custom Model [{PROJECT_NAME}]",
     target_name=LLMDeploymentSettings().target_feature_name,
     target_type=dr.enums.TARGET_TYPE.TEXT_GENERATION,
     replicas=2,
@@ -40,10 +40,10 @@ custom_model_args = CustomModelArgs(
 )
 
 registered_model_args = RegisteredModelArgs(
-    resource_name=f"Data Analyst Proxy LLM Registered Model [{PROJECT_NAME}]",
+    resource_name=f"UseCase Analyst Proxy LLM Registered Model [{PROJECT_NAME}]",
 )
 
 deployment_args = DeploymentArgs(
-    resource_name=f"Data Analyst Proxy LLM Deployment [{PROJECT_NAME}]",
-    label=f"Data Analyst Proxy LLM Deployment [{PROJECT_NAME}]",
+    resource_name=f"UseCase Analyst Proxy LLM Deployment [{PROJECT_NAME}]",
+    label=f"UseCase Analyst Proxy LLM Deployment [{PROJECT_NAME}]",
 )

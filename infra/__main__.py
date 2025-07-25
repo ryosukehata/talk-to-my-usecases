@@ -36,17 +36,14 @@ from infra import (
 )
 from infra.components.dr_credential import (
     get_credential_runtime_parameter_values,
-    get_database_credentials,
     get_llm_credentials,
 )
 from infra.settings_proxy_llm import CHAT_MODEL_NAME
 from utils.resources import (
+    aicatalog_env_name,
     app_env_name,
     llm_deployment_env_name,
-    aicatalog_env_name,
 )
-from utils.schema import AppInfra
-
 
 # ガードレールの設定
 guard_configurations = settings_guardrails.guardrails
@@ -65,7 +62,6 @@ if settings_generative.LLM == LLMs.DEPLOYED_LLM:
         )
 
 check_feature_flags(PROJECT_ROOT / "infra" / "feature_flag_requirements.yaml")
-
 
 
 if "DATAROBOT_DEFAULT_USE_CASE" in os.environ:
@@ -157,11 +153,7 @@ llm_deployment = CustomModelDeployment(
 
 ai_catarog_dataset = datarobot.DatasetFromFile(
     resource_name=f"UseCase Analyst AI Catalog Tools Dataset [{PROJECT_NAME}]",
-    file_path=str(
-        PROJECT_ROOT
-        / "assets"
-        / "tools_and_descriptions.csv"
-    ),
+    file_path=str(PROJECT_ROOT / "assets" / "tools_and_descriptions.csv"),
     use_case_ids=[use_case.id],
 )
 
@@ -176,8 +168,12 @@ app_runtime_parameters = [
         type="string",
         value=ai_catarog_dataset.id,
     ),
+    datarobot.ApplicationSourceRuntimeParameterValueArgs(
+        key="MULTISTEP",
+        type="string",
+        value=os.environ.get("MULTISTEP", "False"),
+    ),
 ]
-
 
 
 app_source = datarobot.ApplicationSource(

@@ -38,11 +38,11 @@ def get_frontend_path() -> Path:
 application_path = PROJECT_ROOT / get_frontend_path()
 
 app_source_args = ApplicationSourceArgs(
-    resource_name=f"Data Analyst App Source [{PROJECT_NAME}]",
+    resource_name=f"UseCase Analyst App Source [{PROJECT_NAME}]",
     base_environment_id=RuntimeEnvironments.PYTHON_312_APPLICATION_BASE.value.id,
 ).model_dump(mode="json", exclude_none=True)
 
-app_resource_name: str = f"Data Analyst Application [{PROJECT_NAME}]"
+app_resource_name: str = f"UseCase Analyst Application [{PROJECT_NAME}]"
 
 
 def _prep_metadata_yaml(
@@ -99,7 +99,6 @@ def get_app_files(
     source_files.append(
         ((application_path / "metadata.yaml").as_posix(), "metadata.yaml")
     )
-
 
     EXCLUDE_PATTERNS = [re.compile(pattern) for pattern in [r".*\.pyc"]]
     source_files = [

@@ -12,7 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # --- 定数 ---
-DX_TOOLS = ["RPA", "予測AI", "生成AI", "BI", "数理最適化", "エージェント", "データ蓄積", "解決方法なし"]
+DX_TOOLS = [
+    "RPA",
+    "予測AI",
+    "生成AI",
+    "BI",
+    "数理最適化",
+    "エージェント",
+    "データ蓄積",
+    "解決方法なし",
+]
+
 
 def get_system_prompt_description():
     """
@@ -116,6 +126,7 @@ def get_system_prompt_description():
     - アップロードされたファイルがある場合は、その内容を考慮して提案を行ってください
     """
 
+
 def get_system_prompt():
     """
     システムプロンプトを取得します。
@@ -216,7 +227,6 @@ def get_system_prompt():
     """
 
 
-
 def get_system_prompt_for_decision():
     """
     質問するべきか、回答を作るべきかのシステムプロンプトを取得します。
@@ -259,10 +269,11 @@ def get_system_prompt_for_decision():
     - アップロードされたファイルがある場合は、その内容を考慮して提案を行ってください
     """
 
+
 def get_system_prompt_for_questions():
-    '''
+    """
     質問を作成するプロンプトを取得する関数
-    '''
+    """
     return """
     あなたはDXテーマ定義の専門家です。
     目的は、ユーザーが入力した「やりたいこと」とこれまでの会話履歴を元に、最適なDXツールとそれに必要なToDoリストを生成します。
@@ -293,11 +304,12 @@ def get_system_prompt_for_questions():
     - アップロードされたファイルがある場合は、その内容を考慮して提案を行ってください
     """
 
-# 
+
+#
 def get_system_prompt_for_solution():
-    '''
+    """
     ソリューションを提示するためのプロンプトを取得する関数
-    '''
+    """
     return """
     あなたはDXテーマ定義の専門家です。
     ユーザーが入力した「やりたいこと」とこれまでの会話履歴を元に、最適なDXツールとそれに必要なToDoリストを生成します。

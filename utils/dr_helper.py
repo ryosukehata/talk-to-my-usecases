@@ -1,16 +1,15 @@
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import datarobot as dr
 import httpx
+import pandas as pd
 from datarobot.client import RESTClientObject
 from pydantic import ValidationError
-import pandas as pd
-from typing import cast
 
 from utils.logging_helper import get_logger
-from utils.resources import LLMDeployment, AICatalogDataset
+from utils.resources import AICatalogDataset, LLMDeployment
 
 logger = get_logger()
 
@@ -30,7 +29,8 @@ def initialize_deployment() -> tuple[RESTClientObject, str]:
             "stack and that it is active using `pulumi stack output`. "
             "If running in DataRobot, verify your runtime parameters have been set correctly."
         ) from e
-    
+
+
 def get_aicatalog_id() -> str:
     try:
         dr.Client()
@@ -44,11 +44,11 @@ def get_aicatalog_id() -> str:
             "If running in DataRobot, verify your runtime parameters have been set correctly."
         ) from e
 
+
 MAX_REGISTRY_DATASET_SIZE = 10e6
 
-async def download_registry_dataset(
-    dataset_id: str
-) -> pd.DataFrame:
+
+async def download_registry_dataset(dataset_id: str) -> pd.DataFrame:
     """Load selected datasets as pandas DataFrames
 
     Args:
@@ -57,7 +57,7 @@ async def download_registry_dataset(
     Returns:
         list[pd.DataFrame]: list of data
     """
-    downloaded_datasets = []
+
     dr.Client()
     dataset = dr.Dataset.get(dataset_id)
     if (
@@ -72,7 +72,7 @@ async def download_registry_dataset(
         df_records = cast(
             pd.DataFrame,
             dataset.get_as_dataframe(),
-            )
+        )
         logger.info(f"Successfully downloaded {dataset.name}")
         return df_records
     except Exception as e:
@@ -80,9 +80,11 @@ async def download_registry_dataset(
         logger.error(f"Failed to read dataset {dataset.name}: {str(e)}")
         return None
 
+
 async def fetch_aicatalog_dataset() -> pd.DataFrame:
     ai_catalog_dataset_id = get_aicatalog_id()
     return await download_registry_dataset(ai_catalog_dataset_id)
+
 
 async def async_submit_actuals_to_datarobot(
     association_id: str, telemetry_json: dict[str, Any] | None = None

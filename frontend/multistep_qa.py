@@ -232,5 +232,5 @@ async def main():
     実現したいことに対してDXのどんな技術で解決できそうか判断してくれます。
     """)
 
-
-# asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

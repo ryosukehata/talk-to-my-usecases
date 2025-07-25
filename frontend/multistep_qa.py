@@ -36,9 +36,6 @@ MAX_QUESTION_ROUNDS = 5
 
 
 
-# --- Streamlit アプリケーション ---
-st.set_page_config(page_title="DXテーマ定義支援アプリ", layout="wide")
-
 async def main():
     """
     メインのアプリケーションロジックを実行します。

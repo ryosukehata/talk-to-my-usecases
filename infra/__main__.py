@@ -176,6 +176,11 @@ app_runtime_parameters = [
         type="string",
         value=ai_catarog_dataset.id,
     ),
+    datarobot.ApplicationSourceRuntimeParameterValueArgs(
+        key="MULTISTEP",
+        type="string",
+        value=os.environ.get("MULTISTEP", "False"),
+    ),
 ]
 
 
